@@ -1,159 +1,193 @@
-﻿#include <iostream>
-#include <Windows.h>
-#include <conio.h>
+#include <windows.h>
+#include <iostream>
 #include <cmath>
-
 using namespace std;
 
-volatile int incrCount = 0;
-volatile int decrCount = 0;
-volatile int factCount = 0;
+volatile long long cnt[3] = { 0, 0, 0 };
+volatile bool run[3] = { true, true, true };
+volatile bool load_run = false;
+volatile bool load_stop = false;
 
+HANDLE th[3] = { NULL, NULL, NULL };
+DWORD id[3] = { 0, 0, 0 };
 
-HANDLE hIncr, hDecr, hFact, hLoader, hLoader2, hLoader3, hLoader4, hLoader5, hLoader6, hLoader7, hPrinter;
-
-DWORD WINAPI incr(LPVOID) {
-    while (true) incrCount++;
-}
-
-DWORD WINAPI dicr(LPVOID) {
-    while (true) decrCount++;
-}
-
-DWORD WINAPI fact(LPVOID param) {
-    int n = (int)(intptr_t)param;
-    while (true) {
-        int r = 1;
-        for (int j = 1; j <= n; j++)
-            r *= j;
-        factCount++;
+DWORD WINAPI inc(LPVOID p) {
+    int n = (int)p;
+    while (run[n]) {
+        cnt[n]++;
     }
+    return 0;
 }
 
-DWORD WINAPI Loader(LPVOID) {
-    unsigned long long h = 0xcbf29ce484222325ULL;
+DWORD WINAPI fib(LPVOID p) {
+    int n = (int)p;
+    long long a, b, c;
+    while (run[n]) {
+        a = 0; b = 1;
+        for (int i = 0; i < 20; i++) {
+            c = a + b;
+            a = b;
+            b = c;
+        }
+        cnt[n]++;
+    }
+    return 0;
+}
 
-    while (true) {
+DWORD WINAPI fact(LPVOID p) {
+    int n = (int)p;
+    long long f;
+    while (run[n]) {
+        f = 1;
+        for (int i = 1; i <= 12; i++) {
+            f *= i;
+        }
+        cnt[n]++;
+    }
+    return 0;
+}
+
+DWORD WINAPI loader(LPVOID p) {
+    cout << "нагрузчик запущен с приоритетом максимальный" << endl;
+    
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+    
+    unsigned long long h = 0xcbf29ce484222325ULL;
+    while (!load_stop) {
         for (int i = 0; i < 100000; i++) {
             h ^= i;
             h *= 0x100000001b3ULL;
         }
     }
+    
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+    
+    cout << "нагрузчик завершил работу, приоритет нормальный" << endl;
+    
+    load_run = false;
+    return 0;
 }
 
+DWORD WINAPI logger(LPVOID p) {
+    const char* names[] = { "инкремент", "фибоначчи", "факториал" };
 
+    while (true) {
+        Sleep(1000);
+
+        for (int i = 0; i < 3; i++) {
+            int pr = GetThreadPriority(th[i]);
+            const char* pr_str = "нормальный";
+
+            if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
+            else if (pr == THREAD_PRIORITY_BELOW_NORMAL) pr_str = "ниже нормального";
+            else if (pr == THREAD_PRIORITY_NORMAL) pr_str = "нормальный";
+            else if (pr == THREAD_PRIORITY_ABOVE_NORMAL) pr_str = "выше нормального";
+            else if (pr == THREAD_PRIORITY_HIGHEST) pr_str = "высокий";
+            else if (pr == THREAD_PRIORITY_TIME_CRITICAL) pr_str = "максимальный";
+            else if (pr == THREAD_PRIORITY_IDLE) pr_str = "минимальный";
+
+            cout << "поток " << names[i] << " | ид: " << id[i]
+                << " | итераций: " << cnt[i]
+                << " | приоритет: " << pr_str << endl;
+        }
+        cout << "-----------------------------" << endl;
+    }
+    return 0;
+}
+
+void set_pr(int tid, int val) {
+    if (tid < 0 || tid > 2) return;
+
+    int pr = THREAD_PRIORITY_NORMAL;
+    switch (val) {
+    case 1: pr = THREAD_PRIORITY_LOWEST; break;
+    case 2: pr = THREAD_PRIORITY_BELOW_NORMAL; break;
+    case 3: pr = THREAD_PRIORITY_NORMAL; break;
+    case 4: pr = THREAD_PRIORITY_ABOVE_NORMAL; break;
+    case 5: pr = THREAD_PRIORITY_HIGHEST; break;
+    case 6: pr = THREAD_PRIORITY_TIME_CRITICAL; break;
+    default: return;
+    }
+
+    SetThreadPriority(th[tid], pr);
+    cout << "приоритет потока " << tid << " изменен" << endl;
+}
 
 int main() {
     setlocale(0, "rus");
 
-    hIncr = CreateThread(NULL, 0, incr, NULL, 0, NULL);
-    hDecr = CreateThread(NULL, 0, dicr, NULL, 0, NULL);
-    hFact = CreateThread(NULL, 0, fact, (LPVOID)100, 0, NULL);
-    hLoader = CreateThread(NULL, 0, Loader, NULL, 0, NULL);
-    hLoader2 = CreateThread(NULL, 0, Loader, NULL, 0, NULL);
-    hLoader3 = CreateThread(NULL, 0, Loader, NULL, 0, NULL);
-    hLoader4 = CreateThread(NULL, 0, Loader, NULL, 0, NULL);
-    hLoader5 = CreateThread(NULL, 0, Loader, NULL, 0, NULL);
-    hLoader6 = CreateThread(NULL, 0, Loader, NULL, 0, NULL);
-    hLoader7 = CreateThread(NULL, 0, Loader, NULL, 0, NULL);
+    th[0] = CreateThread(NULL, 0, inc, (void*)0, 0, &id[0]);
+    th[1] = CreateThread(NULL, 0, fib, (void*)1, 0, &id[1]);
+    th[2] = CreateThread(NULL, 0, fact, (void*)2, 0, &id[2]);
 
+    SetThreadPriority(th[0], THREAD_PRIORITY_LOWEST);
+    SetThreadPriority(th[1], THREAD_PRIORITY_NORMAL);
+    SetThreadPriority(th[2], THREAD_PRIORITY_HIGHEST);
 
-    SetThreadPriority(hIncr, THREAD_PRIORITY_ABOVE_NORMAL);
-    SetThreadPriority(hDecr, THREAD_PRIORITY_NORMAL);
-    SetThreadPriority(hFact, THREAD_PRIORITY_BELOW_NORMAL);
+    HANDLE hlog = CreateThread(NULL, 0, logger, NULL, 0, NULL);
+
+    cout << "программа запущена" << endl;
+    cout << "-----------------------------" << endl;
+    cout << "1 - низкий" << endl;
+    cout << "2 - ниже нормального" << endl;
+    cout << "3 - нормальный" << endl;
+    cout << "4 - выше нормального" << endl;
+    cout << "5 - высокий" << endl;
+    cout << "6 - максимальный" << endl;
+    cout << "-----------------------------" << endl;
+    cout << "команды:" << endl;
+    cout << "  номер_потока приоритет" << endl;
+    cout << "  пример: 0 3" << endl;
+    cout << "  7 - запустить нагрузчик" << endl;
+    cout << "  8 - выход" << endl;
+    cout << "-----------------------------" << endl;
+
+    int cmd, tid, pval;
+    HANDLE hload = NULL;
 
     while (true) {
-        system("cls");
+        cin >> cmd;
 
-        cout << "ID " << GetThreadId(hIncr)
-            << " INCR | it/s: " << incrCount
-            << " | pr: " << GetThreadPriority(hIncr) << endl;
-
-        cout << "ID " << GetThreadId(hDecr)
-            << " DECR | it/s: " << decrCount
-            << " | pr: " << GetThreadPriority(hDecr) << endl;
-
-        cout << "ID " << GetThreadId(hFact)
-            << " FACT | it/s: " << factCount
-            << " | pr: " << GetThreadPriority(hFact) << endl;
-
-        cout << "ID " << GetThreadId(hLoader)
-            << " LOAD | "
-            << " pr: " << GetThreadPriority(hLoader) << endl;
-
-        cout << "ID " << GetThreadId(hLoader2)
-            << " LOAD | "
-            << " pr: " << GetThreadPriority(hLoader2) << endl;
-
-        cout << "ID " << GetThreadId(hLoader3)
-            << " LOAD | "
-            << " pr: " << GetThreadPriority(hLoader3) << endl;
-
-        cout << "ID " << GetThreadId(hLoader4)
-            << " LOAD | "
-            << " pr: " << GetThreadPriority(hLoader4) << endl;
-
-        cout << "ID " << GetThreadId(hLoader5)
-            << " LOAD | "
-            << " pr: " << GetThreadPriority(hLoader5) << endl;
-
-
-        cout << "ID " << GetThreadId(hLoader6)
-            << " LOAD | "
-            << " pr: " << GetThreadPriority(hLoader6) << endl;
-
-        cout << "ID " << GetThreadId(hLoader7)
-            << " LOAD | "
-            << " pr: " << GetThreadPriority(hLoader7) << endl;
-
-
-        cout << "[q/w/e] incr  [a/s/d] decr  [z/x/c] fact" << endl;;
-        cout << "[t/y] loader [0] exit" << endl;;
-
-        incrCount = 0;
-        decrCount = 0;
-        factCount = 0;
-
-        for (int i = 0; i < 10; i++) {
-            if (_kbhit()) {
-                char c = _getch();
-                if (c == '0') return 0;
-
-                switch (c) {
-                case 'q': SetThreadPriority(hIncr, THREAD_PRIORITY_HIGHEST); break;
-                case 'w': SetThreadPriority(hIncr, THREAD_PRIORITY_NORMAL); break;
-                case 'e': SetThreadPriority(hIncr, THREAD_PRIORITY_LOWEST); break;
-
-                case 'a': SetThreadPriority(hDecr, THREAD_PRIORITY_HIGHEST); break;
-                case 's': SetThreadPriority(hDecr, THREAD_PRIORITY_NORMAL); break;
-                case 'd': SetThreadPriority(hDecr, THREAD_PRIORITY_LOWEST); break;
-
-                case 'z': SetThreadPriority(hFact, THREAD_PRIORITY_HIGHEST); break;
-                case 'x': SetThreadPriority(hFact, THREAD_PRIORITY_NORMAL); break;
-                case 'c': SetThreadPriority(hFact, THREAD_PRIORITY_LOWEST); break;
-
-                case 't':
-                    SetThreadPriority(hLoader, THREAD_PRIORITY_TIME_CRITICAL);
-                    SetThreadPriority(hLoader2, THREAD_PRIORITY_TIME_CRITICAL);
-                    SetThreadPriority(hLoader3, THREAD_PRIORITY_TIME_CRITICAL);
-                    SetThreadPriority(hLoader4, THREAD_PRIORITY_TIME_CRITICAL);
-                    SetThreadPriority(hLoader5, THREAD_PRIORITY_TIME_CRITICAL);
-                    SetThreadPriority(hLoader6, THREAD_PRIORITY_TIME_CRITICAL);
-                    SetThreadPriority(hLoader7, THREAD_PRIORITY_TIME_CRITICAL);
-                    break;
-
-                case 'y':
-                    SetThreadPriority(hLoader, THREAD_PRIORITY_NORMAL);
-                    SetThreadPriority(hLoader2, THREAD_PRIORITY_NORMAL);
-                    SetThreadPriority(hLoader3, THREAD_PRIORITY_NORMAL);
-                    SetThreadPriority(hLoader4, THREAD_PRIORITY_NORMAL);
-                    SetThreadPriority(hLoader5, THREAD_PRIORITY_NORMAL);
-                    SetThreadPriority(hLoader6, THREAD_PRIORITY_NORMAL);
-                    SetThreadPriority(hLoader7, THREAD_PRIORITY_NORMAL);
-                    break;
-                }
+        if (cmd == 8) {
+            break;
+        }
+        else if (cmd == 7) {
+            if (!load_run) {
+                load_run = true;
+                load_stop = false;
+                hload = CreateThread(NULL, 0, loader, NULL, 0, NULL);
             }
-            Sleep(100); 
+            else {
+                cout << "нагрузчик уже запущен" << endl;
+            }
+        }
+        else {
+            cin >> tid >> pval;
+            set_pr(tid, pval);
         }
     }
+
+    for (int i = 0; i < 3; i++) {
+        run[i] = false;
+    }
+
+    load_stop = true;
+
+    WaitForSingleObject(th[0], 1000);
+    WaitForSingleObject(th[1], 1000);
+    WaitForSingleObject(th[2], 1000);
+
+    if (hload != NULL) {
+        WaitForSingleObject(hload, 1000);
+        CloseHandle(hload);
+    }
+
+    CloseHandle(th[0]);
+    CloseHandle(th[1]);
+    CloseHandle(th[2]);
+    CloseHandle(hlog);
+
+    cout << "программа завершена" << endl;
+
+    return 0;
 }
