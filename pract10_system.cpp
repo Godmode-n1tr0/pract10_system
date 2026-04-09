@@ -1,209 +1,328 @@
-#include <windows.h>
 #include <iostream>
-#include <cmath>
+#include <Windows.h>
+#include <conio.h>
+#include <vector>
+
 using namespace std;
 
-volatile long long cnt[3] = { 0, 0, 0 };
-volatile bool run[3] = { true, true, true };
-volatile bool load_run = false;
-volatile bool load_stop = false;
+HANDLE Work1 = NULL;
+HANDLE Work2 = NULL;
+HANDLE Work3 = NULL;
+HANDLE Work4 = NULL;
+HANDLE Counter = NULL;
 
-HANDLE th[3] = { NULL, NULL, NULL };
-DWORD id[3] = { 0, 0, 0 };
+volatile int result1 = 0;
+volatile int result2 = 0;
+volatile int result3 = 0;
+volatile int result4 = 0;
 
-DWORD WINAPI inc(LPVOID p) {
-    int n = (int)p;
-    while (run[n]) {
-        cnt[n]++;
-    }
-    return 0;
+int savedPrio1 = 0;
+int savedPrio2 = 0;
+int savedPrio3 = 0;
+
+std::vector<DWORD> Exit;
+
+bool schet = false;
+
+bool start = false;
+
+int Max = 1000;
+
+int TimeOut = 2000;
+
+
+DWORD WINAPI COUNT(LPVOID smg)
+{
+	while (true)
+	{
+		if (result1 != 0)
+			cout << result1;
+		if (Work4 != NULL)
+			cout << " приоритет: " << GetThreadPriority(Work1);
+		cout << endl;
+
+		if (result2 != 0)
+			cout << result2;
+		if (Work4 != NULL)
+			cout << " приоритет: " << GetThreadPriority(Work2);
+		cout << endl;
+
+		if (result3 != 0)
+			cout << result3;
+		if (Work4 != NULL)
+			cout << " приоритет: " << GetThreadPriority(Work3);
+		cout << endl;
+
+		if (result4 != 0)
+		{
+			cout << result4;
+			if (Work4 != NULL)
+				cout << " приоритет: " << GetThreadPriority(Work4);
+			cout << endl;
+		}
+		cout << "" << endl;
+		Sleep(TimeOut);
+
+	}
+}
+DWORD WINAPI Fibonachi1(LPVOID smg)
+{
+	int counter = 0;
+	int max = Max;
+	int yieldCounter = 0;
+
+	while (true)
+	{
+		counter++;
+
+		if (counter == max)
+		{
+			counter = 0;
+			result1++;
+		}
+
+
+		//yieldCounter++;
+		//if (yieldCounter >= 1000) {
+		//	Sleep(0);
+		//	yieldCounter = 0;
+		//}
+	}
 }
 
-DWORD WINAPI fib(LPVOID p) {
-    int n = (int)p;
-    long long a, b, c;
-    while (run[n]) {
-        a = 0; b = 1;
-        for (int i = 0; i < 20; i++) {
-            c = a + b;
-            a = b;
-            b = c;
-        }
-        cnt[n]++;
-    }
-    return 0;
+DWORD WINAPI Fibonachi2(LPVOID smg)
+{
+	int counter = 0;
+	int max = Max;
+	int yieldCounter = 0;
+
+	while (true)
+	{
+		counter++;
+
+		if (counter == max)
+		{
+			counter = 0;
+			result2++;
+		}
+
+
+		//yieldCounter++;
+		//if (yieldCounter >= 1000) {
+		//	Sleep(0); 
+		//	yieldCounter = 0;
+		//}
+	}
 }
 
-DWORD WINAPI fact(LPVOID p) {
-    int n = (int)p;
-    long long f;
-    while (run[n]) {
-        f = 1;
-        for (int i = 1; i <= 12; i++) {
-            f *= i;
-        }
-        cnt[n]++;
-    }
-    return 0;
+DWORD WINAPI Fibonachi3(LPVOID smg)
+{
+	int counter = 0;
+	int max = Max;
+	int yieldCounter = 0;
+
+	while (true)
+	{
+		counter++;
+
+		if (counter == max)
+		{
+			counter = 0;
+			result3++;
+		}
+
+
+		//yieldCounter++;
+		//if (yieldCounter >= 1000) {
+		//	Sleep(0); 
+		//	yieldCounter = 0;
+		//}
+	}
 }
 
-// ==========================================// Переработанный поток "Нагрузчик"
-// ==========================================
-DWORD WINAPI loader(LPVOID p) {
-    cout << "[Нагрузчик] Запущен. Приоритет: максимальный (TIME_CRITICAL)" << endl;
-    cout << "[Нагрузчик] Начинаю интенсивную нагрузку, выдавливая другие потоки..." << endl;
+DWORD WINAPI Fibonachi4(LPVOID smg)
+{
+	int counter = 0;
+	int max = Max;
+	int yieldCounter = 0;
 
-    // Фаза 1: Максимальный приоритет
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+	while (true)
+	{
+		counter++;
 
-    volatile double w = 0.0;
-    const int phase1_iterations = 300000000; // ~2-4 сек на современном CPU
-    
-    for (int i = 0; i < phase1_iterations && !load_stop; ++i) {
-        w += sqrt((double)i) * sin((double)i) * cos((double)i);
-    }
+		if (counter == max)
+		{
+			counter = 0;
+			result4++;
+		}
 
-    if (load_stop) {
-        cout << "[Нагрузчик] Остановлен пользователем во время фазы максимального приоритета." << endl;
-        load_run = false;
-        return 0;
-    }
 
-    // Переход к нормальному приоритету
-    cout << "[Нагрузчик] Фаза выдавливания завершена. Переключаю приоритет на нормальный (NORMAL)..." << endl;
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    cout << "[Нагрузчик] Работаю с нормальным приоритетом. Потоки делят CPU честно." << endl;
+		//yieldCounter++;
+		//if (yieldCounter >= 1000) {
+		//	Sleep(0);
+		//	yieldCounter = 0;
+		//}
+	}
+}
+void ConfirmChangePriority(int priority, int id)
+{
+	switch (id)
+	{
+	case 0:
+		if (Work1 != NULL)
+			SetThreadPriority(Work1, priority);
+		break;
+	case 1:
+		if (Work2 != NULL)
+			SetThreadPriority(Work2, priority);
+		break;
+	case 2:
+		if (Work3 != NULL)
+			SetThreadPriority(Work3, priority);
+		break;
+	case 3:
+		if (Work4 != NULL)
+			SetThreadPriority(Work4, priority);
+		break;
+	}
 
-    // Фаза 2: Нормальный приоритет (работает до явной остановки)
-    while (!load_stop) {
-        for (int i = 0; i < 100000000 && !load_stop; ++i) {
-            w += sqrt((double)i) * sin((double)i) * cos((double)i);
-        }
-        Sleep(10); // Позволяет планировщику Windows корректно обрабатывать прерывание
-    }
+	result1 = 0; result2 = 0; result3 = 0; result4 = 0;
 
-    cout << "[Нагрузчик] Работа завершена по команде пользователя." << endl;
-    load_run = false;
-    return 0;
 }
 
-DWORD WINAPI logger(LPVOID p) {
-    const char* names[] = { "инкремент", "фибоначчи", "факториал" };
+void ChangePriority(int id)
+{
+	system("cls");
+	int choise_priority;
+	cout << "Какой приоритет выбираете\n1.Фоновый\n2.низкий\n3.ниже нормы\n4.нормальный\n5.выше нормы\n6.высший\n";
+	cin >> choise_priority;
 
-    while (true) {
-        Sleep(1000);
+	int priority = THREAD_PRIORITY_NORMAL;
 
-        for (int i = 0; i < 3; i++) {
-            int pr = GetThreadPriority(th[i]);
-            const char* pr_str = "нормальный";
-            if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
-            else if (pr == THREAD_PRIORITY_BELOW_NORMAL) pr_str = "ниже нормального";
-            else if (pr == THREAD_PRIORITY_NORMAL) pr_str = "нормальный";
-            else if (pr == THREAD_PRIORITY_ABOVE_NORMAL) pr_str = "выше нормального";
-            else if (pr == THREAD_PRIORITY_HIGHEST) pr_str = "высокий";
-            else if (pr == THREAD_PRIORITY_TIME_CRITICAL) pr_str = "максимальный";
-            else if (pr == THREAD_PRIORITY_IDLE) pr_str = "минимальный";
-
-            cout << "поток " << names[i] << " | ид: " << id[i]
-                << " | итераций: " << cnt[i]
-                << " | приоритет: " << pr_str << endl;
-        }
-        cout << "-----------------------------" << endl;
-    }
-    return 0;
+	switch (choise_priority)
+	{
+	case 1: { ConfirmChangePriority(THREAD_PRIORITY_IDLE, id); break; }
+	case 2: { ConfirmChangePriority(THREAD_PRIORITY_LOWEST, id); break; }
+	case 3: { ConfirmChangePriority(THREAD_PRIORITY_BELOW_NORMAL, id); break; }
+	case 4: { ConfirmChangePriority(THREAD_PRIORITY_NORMAL, id); break; }
+	case 5: { ConfirmChangePriority(THREAD_PRIORITY_ABOVE_NORMAL, id); break; }
+	case 6: { ConfirmChangePriority(THREAD_PRIORITY_HIGHEST, id); break; }
+	default:
+		break;
+	}
 }
 
-void set_pr(int tid, int val) {
-    if (tid < 0 || tid > 2) return;
+int main()
+{
+	setlocale(0, "rus");
+	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
-    int pr = THREAD_PRIORITY_NORMAL;
-    switch (val) {
-    case 1: pr = THREAD_PRIORITY_LOWEST; break;
-    case 2: pr = THREAD_PRIORITY_BELOW_NORMAL; break;
-    case 3: pr = THREAD_PRIORITY_NORMAL; break;
-    case 4: pr = THREAD_PRIORITY_ABOVE_NORMAL; break;
-    case 5: pr = THREAD_PRIORITY_HIGHEST; break;
-    case 6: pr = THREAD_PRIORITY_TIME_CRITICAL; break;
-    default: return;
-    }
+	BOOL SSS;
+	GetProcessPriorityBoost(GetCurrentProcess(), &SSS);
+	Sleep(2000);
+	SetProcessPriorityBoost(GetCurrentProcess(), FALSE);
+	GetProcessPriorityBoost(GetCurrentProcess(), &SSS);
+	Sleep(2000);
 
-    SetThreadPriority(th[tid], pr);
-    cout << "приоритет потока " << tid << " изменен" << endl;
-}
+	int choise = 0;
+	DWORD Id;
 
-int main() {
-    setlocale(0, "rus");
+	Work1 = CreateThread(NULL, 0, Fibonachi1, (LPVOID)(INT_PTR)0, 0, &Id);
+	Exit.push_back(Id);
 
-    th[0] = CreateThread(NULL, 0, inc, (void*)0, 0, &id[0]);
-    th[1] = CreateThread(NULL, 0, fib, (void*)1, 0, &id[1]);
-    th[2] = CreateThread(NULL, 0, fact, (void*)2, 0, &id[2]);
+	Work2 = CreateThread(NULL, 0, Fibonachi2, (LPVOID)(INT_PTR)1, 0, &Id);
+	Exit.push_back(Id);
 
-    SetThreadPriority(th[0], THREAD_PRIORITY_LOWEST);
-    SetThreadPriority(th[1], THREAD_PRIORITY_NORMAL);
-    SetThreadPriority(th[2], THREAD_PRIORITY_HIGHEST);
+	Work3 = CreateThread(NULL, 0, Fibonachi3, (LPVOID)(INT_PTR)2, 0, &Id);
+	Exit.push_back(Id);
 
-    HANDLE hlog = CreateThread(NULL, 0, logger, NULL, 0, NULL);
+	SetThreadPriority(Work1, THREAD_PRIORITY_IDLE);
+	SetThreadPriorityBoost(Work1, TRUE);
+	SetThreadPriority(Work2, THREAD_PRIORITY_BELOW_NORMAL);
+	SetThreadPriorityBoost(Work2, TRUE);
+	SetThreadPriority(Work3, THREAD_PRIORITY_NORMAL);
+	SetThreadPriorityBoost(Work3, TRUE);
 
-    cout << "программа запущена" << endl;
-    cout << "-----------------------------" << endl;    cout << "1 - низкий" << endl;
-    cout << "2 - ниже нормального" << endl;
-    cout << "3 - нормальный" << endl;
-    cout << "4 - выше нормального" << endl;
-    cout << "5 - высокий" << endl;
-    cout << "6 - максимальный" << endl;
-    cout << "-----------------------------" << endl;
-    cout << "команды:" << endl;
-    cout << "  номер_потока приоритет" << endl;
-    cout << "  пример: 0 3" << endl;
-    cout << "  7 - запустить нагрузчик" << endl;
-    cout << "  8 - выход" << endl;
-    cout << "-----------------------------" << endl;
+	Exit.push_back(Id);
+	schet = true;
 
-    int cmd, tid, pval;
-    HANDLE hload = NULL;
+	Counter = CreateThread(NULL, 0, COUNT, 0, 0, &Id);
 
-    while (true) {
-        cin >> cmd;
+	while (true)
+	{
+		system("cls");
 
-        if (cmd == 8) {
-            break;
-        }
-        else if (cmd == 7) {
-            if (!load_run) {
-                load_run = true;
-                load_stop = false;
-                hload = CreateThread(NULL, 0, loader, NULL, 0, NULL);
-            }
-            else {
-                cout << "нагрузчик уже запущен" << endl;
-            }
-        }
-        else {
-            cin >> tid >> pval;
-            set_pr(tid, pval);
-        }
-    }
+		cout << "1. Поменять приоритет потока 1 текущий: " << GetThreadPriority(Work1) << endl;
+		cout << "2. Поменять приоритет потока 2 текущий: " << GetThreadPriority(Work2) << endl;
+		cout << "3. Поменять приоритет потока 3 текущий: " << GetThreadPriority(Work3) << endl;
+		cout << "4. Запустить Нагрузчик" << endl;
+		cout << "5. Запустить счетчик" << endl;
 
-    for (int i = 0; i < 3; i++) {
-        run[i] = false;
-    }
+		cin >> choise;
 
-    load_stop = true;
+		switch (choise)
+		{
+		case 1: { ChangePriority(0); break; }
+		case 2: { ChangePriority(1); break; }
+		case 3: { ChangePriority(2); break; }
+		case 4:
+		{
+			if (Work4 != NULL)
+			{
+				cout << "Нагрузчик уже запущен!" << endl;
+				Sleep(1000);
+				break;
+			}
 
-    WaitForSingleObject(th[0], 1000);
-    WaitForSingleObject(th[1], 1000);
-    WaitForSingleObject(th[2], 1000);
+			result1 = 0; result2 = 0; result3 = 0; result4 = 0;
 
-    if (hload != NULL) {        WaitForSingleObject(hload, 2000); // Увеличили таймаут для корректного завершения нагрузчика
-        CloseHandle(hload);
-    }
 
-    CloseHandle(th[0]);
-    CloseHandle(th[1]);
-    CloseHandle(th[2]);
-    CloseHandle(hlog);
+			savedPrio1 = GetThreadPriority(Work1);
+			savedPrio2 = GetThreadPriority(Work2);
+			savedPrio3 = GetThreadPriority(Work3);
 
-    cout << "программа завершена" << endl;
+			SetThreadPriority(Work1, THREAD_PRIORITY_IDLE);
+			SetThreadPriorityBoost(Work1, TRUE);
+			SetThreadPriority(Work2, THREAD_PRIORITY_IDLE);
+			SetThreadPriorityBoost(Work2, TRUE);
+			SetThreadPriority(Work3, THREAD_PRIORITY_IDLE);
+			SetThreadPriorityBoost(Work3, TRUE);
 
-    return 0;
+			Work4 = CreateThread(NULL, 0, Fibonachi4, (LPVOID)(INT_PTR)3, 0, &Id);
+			Exit.push_back(Id);
+
+			SetThreadPriority(Work4, THREAD_PRIORITY_TIME_CRITICAL);
+			SetThreadPriorityBoost(Work4, FALSE);
+
+			TimeOut = 500;
+
+
+			Sleep(15000);
+
+			if (Work4 != NULL) {
+				SetThreadPriority(Work4, THREAD_PRIORITY_NORMAL);
+			}
+
+			SetThreadPriority(Work1, savedPrio1);
+			SetThreadPriorityBoost(Work1, TRUE);
+			SetThreadPriority(Work2, savedPrio2);
+			SetThreadPriorityBoost(Work2, TRUE);
+			SetThreadPriority(Work3, savedPrio3);
+			SetThreadPriorityBoost(Work3, TRUE);
+
+			TimeOut = 2000;
+
+			break;
+		}
+		case 5: {
+			start = true;
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+	}
 }
