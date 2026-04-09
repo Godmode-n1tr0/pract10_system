@@ -10,7 +10,6 @@ volatile bool load_stop = false;
 
 HANDLE th[3] = { NULL, NULL, NULL };
 DWORD id[3] = { 0, 0, 0 };
-int saved_prio[3] = { 0, 0, 0 };
 
 DWORD WINAPI inc(LPVOID p) {
     int n = (int)p;
@@ -48,42 +47,60 @@ DWORD WINAPI fact(LPVOID p) {
     return 0;
 }
 
-// ЗЛОЙ НАГРУЗЧИК
-DWORD WINAPI loader(LPVOID p) {
-    cout << "нагрузчик запущен с максимальным приоритетом" << endl;
+// 🔥 Обновлённый поток-нагрузчик
+DWORD WINAPI StressThreadProc(LPVOID) {
+    load_run = true;
+    load_stop = false;
+
+    cout << "нагрузчик запущен (максимальный приоритет)" << endl;
+
+    // 1. Максимальный приоритет
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
-    volatile double waste = 0.0;
-    while (!load_stop) {
-        for (int i = 0; i < 1000000; i++) {
-            waste += sin(i) * cos(i) * sqrt((double)i);
-        }
+    // 2. Агрессивная нагрузка (вытеснение потоков)
+    DWORD start = GetTickCount();
+    while (GetTickCount() - start < 3000) { // 3 секунды
+        for (int i = 0; i < 1000000; i++) {}
     }
 
+    // 3. Возврат к нормальному приоритету
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    cout << "нагрузчик завершён, приоритет нормальный" << endl;
+    cout << "нагрузчик переключен на нормальный приоритет" << endl;
+
+    // 4. Фоновая работа
+    while (!load_stop) {
+        for (int i = 0; i < 100000; i++) {}
+        Sleep(1);
+    }
+
+    cout << "нагрузчик завершил работу" << endl;
+
     load_run = false;
     return 0;
 }
 
 DWORD WINAPI logger(LPVOID p) {
     const char* names[] = { "инкремент", "фибоначчи", "факториал" };
+
     while (true) {
         Sleep(1000);
+
         for (int i = 0; i < 3; i++) {
             int pr = GetThreadPriority(th[i]);
             const char* pr_str = "нормальный";
-            if (pr == THREAD_PRIORITY_IDLE) pr_str = "фоновый";
-            else if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
+
+            if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
             else if (pr == THREAD_PRIORITY_BELOW_NORMAL) pr_str = "ниже нормального";
             else if (pr == THREAD_PRIORITY_NORMAL) pr_str = "нормальный";
             else if (pr == THREAD_PRIORITY_ABOVE_NORMAL) pr_str = "выше нормального";
             else if (pr == THREAD_PRIORITY_HIGHEST) pr_str = "высокий";
             else if (pr == THREAD_PRIORITY_TIME_CRITICAL) pr_str = "максимальный";
+            else if (pr == THREAD_PRIORITY_IDLE) pr_str = "минимальный";
 
-            cout << "поток " << names[i] << " | ид: " << id[i]
-                 << " | итераций: " << cnt[i]
-                 << " | приоритет: " << pr_str << endl;
+            cout << "поток " << names[i]
+                << " | ид: " << id[i]
+                << " | итераций: " << cnt[i]
+                << " | приоритет: " << pr_str << endl;
         }
         cout << "-----------------------------" << endl;
     }
@@ -92,18 +109,20 @@ DWORD WINAPI logger(LPVOID p) {
 
 void set_pr(int tid, int val) {
     if (tid < 0 || tid > 2) return;
+
     int pr = THREAD_PRIORITY_NORMAL;
     switch (val) {
-        case 1: pr = THREAD_PRIORITY_LOWEST; break;
-        case 2: pr = THREAD_PRIORITY_BELOW_NORMAL; break;
-        case 3: pr = THREAD_PRIORITY_NORMAL; break;
-        case 4: pr = THREAD_PRIORITY_ABOVE_NORMAL; break;
-        case 5: pr = THREAD_PRIORITY_HIGHEST; break;
-        case 6: pr = THREAD_PRIORITY_TIME_CRITICAL; break;
-        default: return;
+    case 1: pr = THREAD_PRIORITY_LOWEST; break;
+    case 2: pr = THREAD_PRIORITY_BELOW_NORMAL; break;
+    case 3: pr = THREAD_PRIORITY_NORMAL; break;
+    case 4: pr = THREAD_PRIORITY_ABOVE_NORMAL; break;
+    case 5: pr = THREAD_PRIORITY_HIGHEST; break;
+    case 6: pr = THREAD_PRIORITY_TIME_CRITICAL; break;
+    default: return;
     }
+
     SetThreadPriority(th[tid], pr);
-    cout << "приоритет потока " << tid << " изменён" << endl;
+    cout << "приоритет потока " << tid << " изменен" << endl;
 }
 
 int main() {
@@ -129,8 +148,7 @@ int main() {
     cout << "6 - максимальный" << endl;
     cout << "-----------------------------" << endl;
     cout << "команды:" << endl;
-    cout << "  номер_потока приоритет" << endl;
-    cout << "  пример: 0 3" << endl;
+    cout << "  номер_потока приоритет (пример: 0 3)" << endl;
     cout << "  7 - запустить нагрузчик" << endl;
     cout << "  8 - выход" << endl;
     cout << "-----------------------------" << endl;
@@ -140,32 +158,14 @@ int main() {
 
     while (true) {
         cin >> cmd;
+
         if (cmd == 8) {
-            if (load_run) {
-                load_stop = true;
-                WaitForSingleObject(hload, 3000);
-                CloseHandle(hload);
-                // восстанавливаем приоритеты
-                SetThreadPriority(th[0], saved_prio[0]);
-                SetThreadPriority(th[1], saved_prio[1]);
-                SetThreadPriority(th[2], saved_prio[2]);
-            }
+            load_stop = true;
             break;
         }
         else if (cmd == 7) {
             if (!load_run) {
-                // сохраняем текущие приоритеты
-                saved_prio[0] = GetThreadPriority(th[0]);
-                saved_prio[1] = GetThreadPriority(th[1]);
-                saved_prio[2] = GetThreadPriority(th[2]);
-                // занижаем рабочие потоки до фоновых
-                SetThreadPriority(th[0], THREAD_PRIORITY_IDLE);
-                SetThreadPriority(th[1], THREAD_PRIORITY_IDLE);
-                SetThreadPriority(th[2], THREAD_PRIORITY_IDLE);
-
-                load_run = true;
-                load_stop = false;
-                hload = CreateThread(NULL, 0, loader, NULL, 0, NULL);
+                hload = CreateThread(NULL, 0, StressThreadProc, NULL, 0, NULL);
             }
             else {
                 cout << "нагрузчик уже запущен" << endl;
@@ -177,20 +177,25 @@ int main() {
         }
     }
 
-    for (int i = 0; i < 3; i++) run[i] = false;
-    if (hload) {
-        load_stop = true;
-        WaitForSingleObject(hload, 3000);
+    for (int i = 0; i < 3; i++) {
+        run[i] = false;
+    }
+
+    if (hload != NULL) {
+        WaitForSingleObject(hload, 5000);
         CloseHandle(hload);
     }
+
     WaitForSingleObject(th[0], 1000);
     WaitForSingleObject(th[1], 1000);
     WaitForSingleObject(th[2], 1000);
+
     CloseHandle(th[0]);
     CloseHandle(th[1]);
     CloseHandle(th[2]);
     CloseHandle(hlog);
 
     cout << "программа завершена" << endl;
+
     return 0;
 }
