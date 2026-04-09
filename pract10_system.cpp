@@ -1,27 +1,4 @@
-инициализация: невозможно преобразовать "const char [10]" в "char *"
-инициализация: невозможно преобразовать "const char [11]" в "char *"
-инициализация: невозможно преобразовать "const char [10]" в "char *"
-инициализация: невозможно преобразовать "const char [10]" в "char *"
-значение типа "const char *" нельзя присвоить сущности типа "char *"
-значение типа "const char *" нельзя присвоить сущности типа "char *"
-значение типа "const char *" нельзя присвоить сущности типа "char *"
-значение типа "const char *" нельзя присвоить сущности типа "char *"
-значение типа "const char *" нельзя присвоить сущности типа "char *"
-значение типа "const char *" нельзя присвоить сущности типа "char *"
-значение типа "const char *" нельзя присвоить сущности типа "char *"
-значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
-значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
-значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
-значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
-=: невозможно преобразовать "const char [8]" в "char *"
-=: невозможно преобразовать "const char [7]" в "char *"
-=: невозможно преобразовать "const char [17]" в "char *"
-=: невозможно преобразовать "const char [17]" в "char *"
-=: невозможно преобразовать "const char [13]" в "char *"
-=: невозможно преобразовать "const char [12]" в "char *"
-=: невозможно преобразовать "const char [11]" в "char *"
-
-    #include <windows.h>
+#include <windows.h>
 #include <iostream>
 using namespace std;
 
@@ -88,14 +65,14 @@ DWORD WINAPI loader(LPVOID p) {
 }
 
 DWORD WINAPI logger(LPVOID p) {
-    char* names[] = { "инкремент", "фибоначчи", "факториал" };
+    const char* names[] = { "инкремент", "фибоначчи", "факториал" };
 
     while (true) {
         Sleep(1000);
 
         for (int i = 0; i < 3; i++) {
             int pr = GetThreadPriority(th[i]);
-            char* pr_str = "нормальный";
+            const char* pr_str = "нормальный";
 
             if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
             else if (pr == THREAD_PRIORITY_BELOW_NORMAL) pr_str = "ниже нормального";
@@ -135,7 +112,7 @@ void set_pr(int tid, int val) {
 int main() {
     setlocale(0, "rus");
 
-    th[0] = CreateThread(NULL , 0, inc, (void*)0, 0, &id[0]);
+    th[0] = CreateThread(NULL, 0, inc, (void*)0, 0, &id[0]);
     th[1] = CreateThread(NULL, 0, fib, (void*)1, 0, &id[1]);
     th[2] = CreateThread(NULL, 0, fact, (void*)2, 0, &id[2]);
 
