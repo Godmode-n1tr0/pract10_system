@@ -1,4 +1,27 @@
-#include <windows.h>
+инициализация: невозможно преобразовать "const char [10]" в "char *"
+инициализация: невозможно преобразовать "const char [11]" в "char *"
+инициализация: невозможно преобразовать "const char [10]" в "char *"
+инициализация: невозможно преобразовать "const char [10]" в "char *"
+значение типа "const char *" нельзя присвоить сущности типа "char *"
+значение типа "const char *" нельзя присвоить сущности типа "char *"
+значение типа "const char *" нельзя присвоить сущности типа "char *"
+значение типа "const char *" нельзя присвоить сущности типа "char *"
+значение типа "const char *" нельзя присвоить сущности типа "char *"
+значение типа "const char *" нельзя присвоить сущности типа "char *"
+значение типа "const char *" нельзя присвоить сущности типа "char *"
+значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
+значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
+значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
+значение типа "const char *" нельзя использовать для инициализации сущности типа "char *"
+=: невозможно преобразовать "const char [8]" в "char *"
+=: невозможно преобразовать "const char [7]" в "char *"
+=: невозможно преобразовать "const char [17]" в "char *"
+=: невозможно преобразовать "const char [17]" в "char *"
+=: невозможно преобразовать "const char [13]" в "char *"
+=: невозможно преобразовать "const char [12]" в "char *"
+=: невозможно преобразовать "const char [11]" в "char *"
+
+    #include <windows.h>
 #include <iostream>
 using namespace std;
 
@@ -7,7 +30,7 @@ volatile bool run[3] = { true, true, true };
 volatile bool load_run = false;
 volatile bool load_stop = false;
 
-HANDLE th[3] = { null, null, null };
+HANDLE th[3] = { NULL, NULL, NULL };
 DWORD id[3] = { 0, 0, 0 };
 
 DWORD WINAPI inc(LPVOID p) {
@@ -48,43 +71,43 @@ DWORD WINAPI fact(LPVOID p) {
 
 DWORD WINAPI loader(LPVOID p) {
     cout << "нагрузчик запущен с приоритетом максимальный" << endl;
-    
-    setthreadpriority(getcurrentthread(), thread_priority_time_critical);
-    
+
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
     volatile long long w = 0;
     for (int i = 0; i < 1000000000 && !load_stop; i++) {
         w += i;
     }
-    
-    setthreadpriority(getcurrentthread(), thread_priority_normal);
-    
+
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+
     cout << "нагрузчик завершил работу, приоритет нормальный" << endl;
-    
+
     load_run = false;
     return 0;
 }
 
 DWORD WINAPI logger(LPVOID p) {
     char* names[] = { "инкремент", "фибоначчи", "факториал" };
-    
+
     while (true) {
-        sleep(1000);
-        
+        Sleep(1000);
+
         for (int i = 0; i < 3; i++) {
-            int pr = getthreadpriority(th[i]);
+            int pr = GetThreadPriority(th[i]);
             char* pr_str = "нормальный";
-            
-            if (pr == thread_priority_lowest) pr_str = "низкий";
-            else if (pr == thread_priority_below_normal) pr_str = "ниже нормального";
-            else if (pr == thread_priority_normal) pr_str = "нормальный";
-            else if (pr == thread_priority_above_normal) pr_str = "выше нормального";
-            else if (pr == thread_priority_highest) pr_str = "высокий";
-            else if (pr == thread_priority_time_critical) pr_str = "максимальный";
-            else if (pr == thread_priority_idle) pr_str = "минимальный";
-            
-            cout << "поток " << names[i] << " | ид: " << id[i] 
-                 << " | итераций: " << cnt[i] 
-                 << " | приоритет: " << pr_str << endl;
+
+            if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
+            else if (pr == THREAD_PRIORITY_BELOW_NORMAL) pr_str = "ниже нормального";
+            else if (pr == THREAD_PRIORITY_NORMAL) pr_str = "нормальный";
+            else if (pr == THREAD_PRIORITY_ABOVE_NORMAL) pr_str = "выше нормального";
+            else if (pr == THREAD_PRIORITY_HIGHEST) pr_str = "высокий";
+            else if (pr == THREAD_PRIORITY_TIME_CRITICAL) pr_str = "максимальный";
+            else if (pr == THREAD_PRIORITY_IDLE) pr_str = "минимальный";
+
+            cout << "поток " << names[i] << " | ид: " << id[i]
+                << " | итераций: " << cnt[i]
+                << " | приоритет: " << pr_str << endl;
         }
         cout << "-----------------------------" << endl;
     }
@@ -93,35 +116,35 @@ DWORD WINAPI logger(LPVOID p) {
 
 void set_pr(int tid, int val) {
     if (tid < 0 || tid > 2) return;
-    
-    int pr = thread_priority_normal;
+
+    int pr = THREAD_PRIORITY_NORMAL;
     switch (val) {
-        case 1: pr = thread_priority_lowest; break;
-        case 2: pr = thread_priority_below_normal; break;
-        case 3: pr = thread_priority_normal; break;
-        case 4: pr = thread_priority_above_normal; break;
-        case 5: pr = thread_priority_highest; break;
-        case 6: pr = thread_priority_time_critical; break;
-        default: return;
+    case 1: pr = THREAD_PRIORITY_LOWEST; break;
+    case 2: pr = THREAD_PRIORITY_BELOW_NORMAL; break;
+    case 3: pr = THREAD_PRIORITY_NORMAL; break;
+    case 4: pr = THREAD_PRIORITY_ABOVE_NORMAL; break;
+    case 5: pr = THREAD_PRIORITY_HIGHEST; break;
+    case 6: pr = THREAD_PRIORITY_TIME_CRITICAL; break;
+    default: return;
     }
-    
-    setthreadpriority(th[tid], pr);
+
+    SetThreadPriority(th[tid], pr);
     cout << "приоритет потока " << tid << " изменен" << endl;
 }
 
 int main() {
     setlocale(0, "rus");
-    
-    th[0] = createthread(null, 0, inc, (void*)0, 0, &id[0]);
-    th[1] = createthread(null, 0, fib, (void*)1, 0, &id[1]);
-    th[2] = createthread(null, 0, fact, (void*)2, 0, &id[2]);
-    
-    setthreadpriority(th[0], thread_priority_lowest);
-    setthreadpriority(th[1], thread_priority_normal);
-    setthreadpriority(th[2], thread_priority_highest);
-    
-    HANDLE hlog = createthread(null, 0, logger, null, 0, null);
-    
+
+    th[0] = CreateThread(NULL , 0, inc, (void*)0, 0, &id[0]);
+    th[1] = CreateThread(NULL, 0, fib, (void*)1, 0, &id[1]);
+    th[2] = CreateThread(NULL, 0, fact, (void*)2, 0, &id[2]);
+
+    SetThreadPriority(th[0], THREAD_PRIORITY_LOWEST);
+    SetThreadPriority(th[1], THREAD_PRIORITY_NORMAL);
+    SetThreadPriority(th[2], THREAD_PRIORITY_HIGHEST);
+
+    HANDLE hlog = CreateThread(NULL, 0, logger, NULL, 0, NULL);
+
     cout << "программа запущена" << endl;
     cout << "-----------------------------" << endl;
     cout << "1 - низкий" << endl;
@@ -137,13 +160,13 @@ int main() {
     cout << "  7 - запустить нагрузчик" << endl;
     cout << "  8 - выход" << endl;
     cout << "-----------------------------" << endl;
-    
+
     int cmd, tid, pval;
-    HANDLE hload = null;
-    
+    HANDLE hload = NULL;
+
     while (true) {
         cin >> cmd;
-        
+
         if (cmd == 8) {
             break;
         }
@@ -151,7 +174,7 @@ int main() {
             if (!load_run) {
                 load_run = true;
                 load_stop = false;
-                hload = createthread(null, 0, loader, null, 0, null);
+                hload = CreateThread(NULL, 0, loader, NULL, 0, NULL);
             }
             else {
                 cout << "нагрузчик уже запущен" << endl;
@@ -162,28 +185,28 @@ int main() {
             set_pr(tid, pval);
         }
     }
-    
+
     for (int i = 0; i < 3; i++) {
         run[i] = false;
     }
-    
+
     load_stop = true;
-    
-    waitforsingleobject(th[0], 1000);
-    waitforsingleobject(th[1], 1000);
-    waitforsingleobject(th[2], 1000);
-    
-    if (hload != null) {
-        waitforsingleobject(hload, 1000);
-        closehandle(hload);
+
+    WaitForSingleObject(th[0], 1000);
+    WaitForSingleObject(th[1], 1000);
+    WaitForSingleObject(th[2], 1000);
+
+    if (hload != NULL) {
+        WaitForSingleObject(hload, 1000);
+        CloseHandle(hload);
     }
-    
-    closehandle(th[0]);
-    closehandle(th[1]);
-    closehandle(th[2]);
-    closehandle(hlog);
-    
+
+    CloseHandle(th[0]);
+    CloseHandle(th[1]);
+    CloseHandle(th[2]);
+    CloseHandle(hlog);
+
     cout << "программа завершена" << endl;
-    
+
     return 0;
 }
