@@ -47,20 +47,42 @@ DWORD WINAPI fact(LPVOID p) {
     return 0;
 }
 
+// ==========================================// Переработанный поток "Нагрузчик"
+// ==========================================
 DWORD WINAPI loader(LPVOID p) {
-    cout << "нагрузчик запущен с приоритетом максимальный" << endl;
-    
+    cout << "[Нагрузчик] Запущен. Приоритет: максимальный (TIME_CRITICAL)" << endl;
+    cout << "[Нагрузчик] Начинаю интенсивную нагрузку, выдавливая другие потоки..." << endl;
+
+    // Фаза 1: Максимальный приоритет
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
+    volatile double w = 0.0;
+    const int phase1_iterations = 300000000; // ~2-4 сек на современном CPU
     
-    volatile double w = 0;
-    for (int i = 0; i < 500000000 && !load_stop; i++) {
-        w += sqrt(i) * sin(i) * cos(i);
+    for (int i = 0; i < phase1_iterations && !load_stop; ++i) {
+        w += sqrt((double)i) * sin((double)i) * cos((double)i);
     }
-    
+
+    if (load_stop) {
+        cout << "[Нагрузчик] Остановлен пользователем во время фазы максимального приоритета." << endl;
+        load_run = false;
+        return 0;
+    }
+
+    // Переход к нормальному приоритету
+    cout << "[Нагрузчик] Фаза выдавливания завершена. Переключаю приоритет на нормальный (NORMAL)..." << endl;
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    
-    cout << "нагрузчик завершил работу, приоритет нормальный" << endl;
-    
+    cout << "[Нагрузчик] Работаю с нормальным приоритетом. Потоки делят CPU честно." << endl;
+
+    // Фаза 2: Нормальный приоритет (работает до явной остановки)
+    while (!load_stop) {
+        for (int i = 0; i < 100000000 && !load_stop; ++i) {
+            w += sqrt((double)i) * sin((double)i) * cos((double)i);
+        }
+        Sleep(10); // Позволяет планировщику Windows корректно обрабатывать прерывание
+    }
+
+    cout << "[Нагрузчик] Работа завершена по команде пользователя." << endl;
     load_run = false;
     return 0;
 }
@@ -74,7 +96,6 @@ DWORD WINAPI logger(LPVOID p) {
         for (int i = 0; i < 3; i++) {
             int pr = GetThreadPriority(th[i]);
             const char* pr_str = "нормальный";
-
             if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
             else if (pr == THREAD_PRIORITY_BELOW_NORMAL) pr_str = "ниже нормального";
             else if (pr == THREAD_PRIORITY_NORMAL) pr_str = "нормальный";
@@ -124,8 +145,7 @@ int main() {
     HANDLE hlog = CreateThread(NULL, 0, logger, NULL, 0, NULL);
 
     cout << "программа запущена" << endl;
-    cout << "-----------------------------" << endl;
-    cout << "1 - низкий" << endl;
+    cout << "-----------------------------" << endl;    cout << "1 - низкий" << endl;
     cout << "2 - ниже нормального" << endl;
     cout << "3 - нормальный" << endl;
     cout << "4 - выше нормального" << endl;
@@ -174,8 +194,7 @@ int main() {
     WaitForSingleObject(th[1], 1000);
     WaitForSingleObject(th[2], 1000);
 
-    if (hload != NULL) {
-        WaitForSingleObject(hload, 1000);
+    if (hload != NULL) {        WaitForSingleObject(hload, 2000); // Увеличили таймаут для корректного завершения нагрузчика
         CloseHandle(hload);
     }
 
