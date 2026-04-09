@@ -1,185 +1,189 @@
-// zad10-sis.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-//
-
+#include <windows.h>
 #include <iostream>
-#include <Windows.h>
-#include <conio.h>
+#include <cmath>
+using namespace std;
 
-volatile long iterations[3] = { 0 };
-volatile bool stressRunning = false;
+volatile long long cnt[3] = { 0, 0, 0 };
+volatile bool run[3] = { true, true, true };
+volatile bool load_run = false;
+volatile bool load_stop = false;
 
-const char* PriorityToString(int prio) {
-    switch (prio) {
-    case -15: return "IDLE";
-    case -2:  return "LOWEST";
-    case -1:  return "BELOW_NORMAL";
-    case 0:   return "NORMAL";
-    case 1:   return "ABOVE_NORMAL";
-    case 2:   return "HIGHEST";
-    case 15:  return "TIME_CRITICAL";
-    default:  return "CUSTOM";
-    }
-}
+HANDLE th[3] = { NULL, NULL, NULL };
+DWORD id[3] = { 0, 0, 0 };
 
-DWORD WINAPI Thread0(LPVOID) {
-    long a = 0;
-    while (true) {
-        a++;
-        InterlockedIncrement(&iterations[0]);
+DWORD WINAPI inc(LPVOID p) {
+    int n = (int)p;
+    while (run[n]) {
+        cnt[n]++;
     }
     return 0;
 }
 
-DWORD WINAPI Thread1(LPVOID) {
-    long a = 0, b = 1;
-    while (true) {
-        long c = a + b;
-        a = b;
-        b = c;
-        InterlockedIncrement(&iterations[1]);
+DWORD WINAPI fib(LPVOID p) {
+    int n = (int)p;
+    long long a, b, c;
+    while (run[n]) {
+        a = 0; b = 1;
+        for (int i = 0; i < 20; i++) {
+            c = a + b;
+            a = b;
+            b = c;
+        }
+        cnt[n]++;
     }
     return 0;
 }
 
-DWORD WINAPI Thread2(LPVOID) {
-    while (true) {
-        long f = 1;
-        for (int i = 1; i <= 10; ++i) {
+DWORD WINAPI fact(LPVOID p) {
+    int n = (int)p;
+    long long f;
+    while (run[n]) {
+        f = 1;
+        for (int i = 1; i <= 12; i++) {
             f *= i;
         }
-        InterlockedIncrement(&iterations[2]);
+        cnt[n]++;
     }
     return 0;
 }
 
 DWORD WINAPI StressThreadProc(LPVOID) {
-    stressRunning = true;
-    while (stressRunning) {
+    load_run = true;
+    load_stop = false;
+    cout << "нагрузчик запущен с приоритетом максимальный" << endl;
+    
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+    
+    while (!load_stop) {
         int x = 0;
         x++;
+    }
+    
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+    
+    cout << "нагрузчик завершил работу, приоритет нормальный" << endl;
+    
+    load_run = false;
+    return 0;
+}
+
+DWORD WINAPI logger(LPVOID p) {
+    const char* names[] = { "инкремент", "фибоначчи", "факториал" };
+
+    while (true) {
+        Sleep(1000);
+
+        for (int i = 0; i < 3; i++) {
+            int pr = GetThreadPriority(th[i]);
+            const char* pr_str = "нормальный";
+
+            if (pr == THREAD_PRIORITY_LOWEST) pr_str = "низкий";
+            else if (pr == THREAD_PRIORITY_BELOW_NORMAL) pr_str = "ниже нормального";
+            else if (pr == THREAD_PRIORITY_NORMAL) pr_str = "нормальный";
+            else if (pr == THREAD_PRIORITY_ABOVE_NORMAL) pr_str = "выше нормального";
+            else if (pr == THREAD_PRIORITY_HIGHEST) pr_str = "высокий";
+            else if (pr == THREAD_PRIORITY_TIME_CRITICAL) pr_str = "максимальный";
+            else if (pr == THREAD_PRIORITY_IDLE) pr_str = "минимальный";
+
+            cout << "поток " << names[i] << " | ид: " << id[i]
+                << " | итераций: " << cnt[i]
+                << " | приоритет: " << pr_str << endl;
+        }
+        cout << "-----------------------------" << endl;
     }
     return 0;
 }
 
+void set_pr(int tid, int val) {
+    if (tid < 0 || tid > 2) return;
+
+    int pr = THREAD_PRIORITY_NORMAL;
+    switch (val) {
+    case 1: pr = THREAD_PRIORITY_LOWEST; break;
+    case 2: pr = THREAD_PRIORITY_BELOW_NORMAL; break;
+    case 3: pr = THREAD_PRIORITY_NORMAL; break;
+    case 4: pr = THREAD_PRIORITY_ABOVE_NORMAL; break;
+    case 5: pr = THREAD_PRIORITY_HIGHEST; break;
+    case 6: pr = THREAD_PRIORITY_TIME_CRITICAL; break;
+    default: return;
+    }
+
+    SetThreadPriority(th[tid], pr);
+    cout << "приоритет потока " << tid << " изменен" << endl;
+}
+
 int main() {
     setlocale(0, "rus");
-    std::cout << "Потоки будут запущены со следующими приоритетами:\n";
-    std::cout << "Поток 1 - Инкремент: BELOW_NORMAL (-1)\n";
-    std::cout << "Поток 2 - Фибоначчи: NORMAL (0)\n";
-    std::cout << "Поток 3 - Факториал: ABOVE_NORMAL (1)\n";
-    std::cout << "\nНажмите любую клавишу для запуска потоков...\n";
-    _getch();
 
-    const char* names[3] = { "Инкремент", "Фибоначчи", "Факториал" };
+    th[0] = CreateThread(NULL, 0, inc, (void*)0, 0, &id[0]);
+    th[1] = CreateThread(NULL, 0, fib, (void*)1, 0, &id[1]);
+    th[2] = CreateThread(NULL, 0, fact, (void*)2, 0, &id[2]);
 
-    HANDLE hThreads[3];
-    hThreads[0] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Thread0, NULL, 0, NULL);
-    hThreads[1] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Thread1, NULL, 0, NULL);
-    hThreads[2] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Thread2, NULL, 0, NULL);
+    SetThreadPriority(th[0], THREAD_PRIORITY_LOWEST);
+    SetThreadPriority(th[1], THREAD_PRIORITY_NORMAL);
+    SetThreadPriority(th[2], THREAD_PRIORITY_HIGHEST);
 
-    SetThreadPriority(hThreads[0], -1);
-    SetThreadPriority(hThreads[1], 0);
-    SetThreadPriority(hThreads[2], 1);
+    HANDLE hlog = CreateThread(NULL, 0, logger, NULL, 0, NULL);
 
-    HANDLE stressThreadHandle = nullptr;
-    const int stressPrioritySequence[] = { 15, 2, 1, 0, -1, -2, -15 };
-    int currentStressPriorityIndex = 0;
-    int stressTimerSec = 0;
+    cout << "программа запущена" << endl;
+    cout << "-----------------------------" << endl;
+    cout << "1 - низкий" << endl;
+    cout << "2 - ниже нормального" << endl;
+    cout << "3 - нормальный" << endl;
+    cout << "4 - выше нормального" << endl;
+    cout << "5 - высокий" << endl;
+    cout << "6 - максимальный" << endl;
+    cout << "-----------------------------" << endl;
+    cout << "команды:" << endl;
+    cout << "  номер_потока приоритет" << endl;
+    cout << "  пример: 0 3" << endl;
+    cout << "  7 - запустить нагрузчик" << endl;
+    cout << "  8 - выход" << endl;
+    cout << "-----------------------------" << endl;
 
-    bool quit = false;
-    while (!quit) {
-        Sleep(1000);
-        system("cls");
+    int cmd, tid, pval;
+    HANDLE hload = NULL;
 
-        std::cout << "Статистика:\n";
-        for (int i = 0; i < 3; ++i) {
-            int iters = iterations[i];
-            iterations[i] = 0;
-            int p = GetThreadPriority(hThreads[i]);
-            std::cout << "Поток " << (i + 1) << " - " << names[i] << ": " << iters << " итераций | Приоритет: " << PriorityToString(p) << " (" << p << ")\n";
+    while (true) {
+        cin >> cmd;
+
+        if (cmd == 8) {
+            load_stop = true;
+            break;
         }
-
-        if (stressRunning && stressThreadHandle != nullptr) {
-            int p = GetThreadPriority(stressThreadHandle);
-            std::cout << "Поток 4 - Нагрузчик: активен | Приоритет: "
-                << PriorityToString(p) << " (" << p << ")\n";
-        }
-
-        if (stressRunning && stressThreadHandle != nullptr) {
-            stressTimerSec++;
-            if (stressTimerSec >= 10) {
-                stressTimerSec = 0;
-                if (currentStressPriorityIndex < 6) {
-                    currentStressPriorityIndex++;
-                    SetThreadPriority(stressThreadHandle, stressPrioritySequence[currentStressPriorityIndex]);
-                }
+        else if (cmd == 7) {
+            if (!load_run) {
+                hload = CreateThread(NULL, 0, StressThreadProc, NULL, 0, NULL);
+            }
+            else {
+                cout << "нагрузчик уже запущен" << endl;
             }
         }
         else {
-            stressTimerSec = 0;
-        }
-
-        std::cout << "\nУправление:\n";
-        std::cout << "1 — изменить приоритет Инкремента\n";
-        std::cout << "2 — изменить приоритет Фибоначчи\n";
-        std::cout << "3 — изменить приоритет Факториала\n";
-        std::cout << "4 — запустить/остановить Нагрузчик\n";
-        std::cout << "5 — выйти\n";
-
-        if (_kbhit()) {
-            char ch = _getch();
-            if (ch == '1' || ch == '2' || ch == '3') {
-                int idx = ch - '1';
-                std::cout << "\nНовый приоритет для потока " << (idx + 1) << ":\n";
-                std::cout << "1: IDLE (-15)\n2: LOWEST (-2)\n3: BELOW_NORMAL (-1)\n";
-                std::cout << "4: NORMAL (0)\n5: ABOVE_NORMAL (1)\n6: HIGHEST (2)\n7: TIME_CRITICAL (15)\n";
-                std::cout << "Выбор: ";
-                char pch = _getch();
-                int prio = 0;
-                if (pch == '1') prio = -15;
-                else if (pch == '2') prio = -2;
-                else if (pch == '3') prio = -1;
-                else if (pch == '4') prio = 0;
-                else if (pch == '5') prio = 1;
-                else if (pch == '6') prio = 2;
-                else if (pch == '7') prio = 15;
-                else prio = 0;
-
-                SetThreadPriority(hThreads[idx], prio);
-                int confirmed = GetThreadPriority(hThreads[idx]);
-                std::cout << "\nУстановлен: " << PriorityToString(confirmed) << " (" << confirmed << ")\n";
-                Sleep(1200);
-            }
-            else if (ch == '4') {
-                if (stressRunning) {
-                    stressRunning = false;
-                    WaitForSingleObject(stressThreadHandle, INFINITE);
-                    CloseHandle(stressThreadHandle);
-                    stressThreadHandle = nullptr;
-                }
-                else {
-                    stressRunning = true;
-                    stressThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StressThreadProc, NULL, 0, NULL);
-                    currentStressPriorityIndex = 0;
-                    SetThreadPriority(stressThreadHandle, 15);
-                }
-            }
-            else if (ch == '5') {
-                quit = true;
-            }
+            cin >> tid >> pval;
+            set_pr(tid, pval);
         }
     }
 
-    if (stressThreadHandle) {
-        stressRunning = false;
-        WaitForSingleObject(stressThreadHandle, INFINITE);
-        CloseHandle(stressThreadHandle);
+    for (int i = 0; i < 3; i++) {
+        run[i] = false;
     }
 
-    for (int i = 0; i < 3; ++i) {
-        TerminateThread(hThreads[i], 0);
-        CloseHandle(hThreads[i]);
+    if (hload != NULL) {
+        WaitForSingleObject(hload, 5000);
+        CloseHandle(hload);
     }
-    std::cout << "\nПрограмма завершена.\n";
+
+    WaitForSingleObject(th[0], 1000);
+    WaitForSingleObject(th[1], 1000);
+    WaitForSingleObject(th[2], 1000);
+
+    CloseHandle(th[0]);
+    CloseHandle(th[1]);
+    CloseHandle(th[2]);
+    CloseHandle(hlog);
+
+    cout << "программа завершена" << endl;
+
     return 0;
 }
