@@ -47,34 +47,20 @@ DWORD WINAPI fact(LPVOID p) {
     return 0;
 }
 
-// 🔥 Обновлённый поток-нагрузчик
-DWORD WINAPI StressThreadProc(LPVOID) {
-    load_run = true;
-    load_stop = false;
-
-    cout << "нагрузчик запущен (максимальный приоритет)" << endl;
-
-    // 1. Максимальный приоритет
+DWORD WINAPI loader(LPVOID p) {
+    cout << "нагрузчик запущен с приоритетом максимальный" << endl;
+    
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-
-    // 2. Агрессивная нагрузка (вытеснение потоков)
-    DWORD start = GetTickCount();
-    while (GetTickCount() - start < 3000) { // 3 секунды
-        for (int i = 0; i < 1000000; i++) {}
+    
+    volatile double w = 0;
+    for (int i = 0; i < 500000000 && !load_stop; i++) {
+        w += sqrt(i) * sin(i) * cos(i);
     }
-
-    // 3. Возврат к нормальному приоритету
+    
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    cout << "нагрузчик переключен на нормальный приоритет" << endl;
-
-    // 4. Фоновая работа
-    while (!load_stop) {
-        for (int i = 0; i < 100000; i++) {}
-        Sleep(1);
-    }
-
-    cout << "нагрузчик завершил работу" << endl;
-
+    
+    cout << "нагрузчик завершил работу, приоритет нормальный" << endl;
+    
     load_run = false;
     return 0;
 }
@@ -97,8 +83,7 @@ DWORD WINAPI logger(LPVOID p) {
             else if (pr == THREAD_PRIORITY_TIME_CRITICAL) pr_str = "максимальный";
             else if (pr == THREAD_PRIORITY_IDLE) pr_str = "минимальный";
 
-            cout << "поток " << names[i]
-                << " | ид: " << id[i]
+            cout << "поток " << names[i] << " | ид: " << id[i]
                 << " | итераций: " << cnt[i]
                 << " | приоритет: " << pr_str << endl;
         }
@@ -148,7 +133,8 @@ int main() {
     cout << "6 - максимальный" << endl;
     cout << "-----------------------------" << endl;
     cout << "команды:" << endl;
-    cout << "  номер_потока приоритет (пример: 0 3)" << endl;
+    cout << "  номер_потока приоритет" << endl;
+    cout << "  пример: 0 3" << endl;
     cout << "  7 - запустить нагрузчик" << endl;
     cout << "  8 - выход" << endl;
     cout << "-----------------------------" << endl;
@@ -160,12 +146,13 @@ int main() {
         cin >> cmd;
 
         if (cmd == 8) {
-            load_stop = true;
             break;
         }
         else if (cmd == 7) {
             if (!load_run) {
-                hload = CreateThread(NULL, 0, StressThreadProc, NULL, 0, NULL);
+                load_run = true;
+                load_stop = false;
+                hload = CreateThread(NULL, 0, loader, NULL, 0, NULL);
             }
             else {
                 cout << "нагрузчик уже запущен" << endl;
@@ -181,14 +168,16 @@ int main() {
         run[i] = false;
     }
 
-    if (hload != NULL) {
-        WaitForSingleObject(hload, 5000);
-        CloseHandle(hload);
-    }
+    load_stop = true;
 
     WaitForSingleObject(th[0], 1000);
     WaitForSingleObject(th[1], 1000);
     WaitForSingleObject(th[2], 1000);
+
+    if (hload != NULL) {
+        WaitForSingleObject(hload, 1000);
+        CloseHandle(hload);
+    }
 
     CloseHandle(th[0]);
     CloseHandle(th[1]);
